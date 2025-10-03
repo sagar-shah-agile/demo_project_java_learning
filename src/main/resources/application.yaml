@@ -1,0 +1,52 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/notification_mgmt?useSSL=false&serverTimezone=UTC
+    username: JavaTrainee
+    password: JavaTrainee
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update  # change to validate or none in production
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Kolkata
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: sagar.shah.agileinfoways@gmail.com
+    password: lqxt ehji ggcq tfvu   # your app password
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls.enable: true
+
+kafka:
+  bootstrap-servers: localhost:9092
+  producer:
+    key-serializer: org.apache.kafka.common.serialization.StringSerializer
+    value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  consumer:
+    group-id: notification-group
+    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    auto-offset-reset: earliest
+
+scheduler:
+  default-delay-ms: 60000
+
+security:
+  jwt:
+    secret: f7a94fefaa12a719f69fce3d75b2c8a3f2d67eed4304d0f34ecdf713fec58a8d
+    expiration-ms: 3600000   # 1 hour
+
+logging:
+  level:
+    root: INFO
+    com.javatraining.notification_mgmt: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%X{traceId}] %-5level %logger{36} - %msg%n"
