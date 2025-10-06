@@ -1,6 +1,7 @@
 package com.javatraining.notification_mgmt.service;
 
 import com.javatraining.notification_mgmt.dto.request.UserRequestDto;
+import com.javatraining.notification_mgmt.dto.response.NotificationResponseDto;
 import com.javatraining.notification_mgmt.dto.response.UserResponseDto;
 import jakarta.validation.Valid;
 
@@ -11,6 +12,8 @@ public interface UserService {
     public List<UserResponseDto> getAllUsers();
     public UserResponseDto getUserById(Long id);
     public UserResponseDto getUserByEmail(String email);
+
+    public List<NotificationResponseDto> getUserNotifications(Long userId);
 
     public void deleteUser(Long id);
     public void deleteUserByEmail(String username);

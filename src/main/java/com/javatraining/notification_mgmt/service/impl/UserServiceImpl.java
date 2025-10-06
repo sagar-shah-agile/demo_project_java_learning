@@ -2,9 +2,11 @@ package com.javatraining.notification_mgmt.service.impl;
 
 
 import com.javatraining.notification_mgmt.dto.request.UserRequestDto;
+import com.javatraining.notification_mgmt.dto.response.NotificationResponseDto;
 import com.javatraining.notification_mgmt.dto.response.UserResponseDto;
 import com.javatraining.notification_mgmt.exception.custom.DuplicateEmailException;
 import com.javatraining.notification_mgmt.exception.custom.UserNotFoundException;
+import com.javatraining.notification_mgmt.model.Notification;
 import com.javatraining.notification_mgmt.model.User;
 import com.javatraining.notification_mgmt.repository.UserRepository;
 import com.javatraining.notification_mgmt.service.UserService;
@@ -162,6 +164,26 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UserNotFoundException("User not found with email: " + email));
         userRepository.delete(user);
+    }
+
+    @Override
+    public List<NotificationResponseDto> getUserNotifications(Long userId) {
+
+        // 1️⃣ Fetch the user first
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + userId));
+
+        // 2️⃣ Get notifications from the user entity
+        List<Notification> notifications = user.getNotifications();
+
+        // 3️⃣ Map Entity → DTO using ModelMapper
+        return notifications.stream()
+                .map(notification -> {
+                    NotificationResponseDto dto = modelMapper.map(notification, NotificationResponseDto.class);
+                    dto.setRecipientEmail(notification.getUser().getEmail()); // ✅ set email manually
+                    return dto;
+                })
+                .collect(Collectors.toList());
     }
 }
 
