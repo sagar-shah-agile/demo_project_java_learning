@@ -1,13 +1,16 @@
 package com.javatraining.notification_mgmt.service.scheduler;
 
 import com.javatraining.notification_mgmt.model.Notification;
+import com.javatraining.notification_mgmt.model.User;
 import com.javatraining.notification_mgmt.repository.NotificationRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,6 +41,10 @@ public class NotificationScheduler {
      * ✅ This ensures emails are delivered automatically once they become due.
      */
     @Scheduled(cron = "0 * * * * *")  // runs every 1 minute at 0 sec
+    //@Scheduled(cron = "0 */5 * * * *") // every 5 minutes
+    // OR
+    @Scheduled(fixedDelay = 300000) // 5 minutes after last execution ends
+    @Transactional(readOnly = false)
     public void processDueNotifications() {
         log.info("🔍 Checking for due notifications at {}", LocalDateTime.now());
 
@@ -53,6 +60,11 @@ public class NotificationScheduler {
         // 2️⃣ Loop through each due notification and try to send it
         for (Notification notification : dueNotifications) {
             try {
+                User user = notification.getUser();
+                if (user == null || user.getEmail() == null) {
+                    log.warn("⚠️ Skipping notification ID={} — user or email missing", notification.getId());
+                    continue;
+                }
                 // ✉️ Build email object
                 SimpleMailMessage message = new SimpleMailMessage();
                 message.setTo(notification.getUser().getEmail());
@@ -64,14 +76,24 @@ public class NotificationScheduler {
 
                 // 3️⃣ Update status in DB
                 notification.setSent(true);
-                notificationRepository.save(notification);
+                notificationRepository.saveAndFlush(notification);
 
-                log.info("📧 Sent notification ID={} to {}",
-                        notification.getId(), notification.getUser().getEmail());
+                // 🧾 Log detailed info
+                log.info("📧 Notification ID={} | User ID={} | Name={} | Email={} | Subject='{}' ✅ SENT",
+                        notification.getId(),
+                        user.getId(),
+                        user.getName(),
+                        user.getEmail(),
+                        notification.getSubject()
+                );
+
 
             } catch (Exception e) {
                 // ⚠️ Error handling: log and move on to the next notification
-                log.error("❌ Failed to send notification ID={}", notification.getId(), e);
+                log.error("❌ Failed to send notification ID={} | Subject='{}' | Error: {}",
+                        notification.getId(),
+                        notification.getSubject(),
+                        e.getMessage(), e);
             }
         }
     }
