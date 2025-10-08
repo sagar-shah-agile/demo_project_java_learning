@@ -5,8 +5,6 @@ import com.javatraining.notification_mgmt.exception.custom.DuplicateEmailExcepti
 import com.javatraining.notification_mgmt.exception.custom.UserNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.common.errors.ResourceNotFoundException;
-import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;

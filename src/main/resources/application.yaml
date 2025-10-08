@@ -25,23 +25,24 @@ spring:
           auth: true
           starttls.enable: true
 
+scheduler:
+  default-delay-ms: 60000
+
 notification:
   max-retries: 3
   backoff-minutes: 5   # base backoff — final delay = backoff-minutes * (retryCount)
+  simulate-failure: true # Enables failure simulation (turn off in prod)
 
-kafka:
-  bootstrap-servers: localhost:9092
-  producer:
-    key-serializer: org.apache.kafka.common.serialization.StringSerializer
-    value-serializer: org.apache.kafka.common.serialization.StringSerializer
-  consumer:
-    group-id: notification-group
-    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    auto-offset-reset: earliest
-
-scheduler:
-  default-delay-ms: 60000
+#kafka:
+#  bootstrap-servers: localhost:9092
+#  producer:
+#    key-serializer: org.apache.kafka.common.serialization.StringSerializer
+#    value-serializer: org.apache.kafka.common.serialization.StringSerializer
+#  consumer:
+#    group-id: notification-group
+#    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+#    value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+#    auto-offset-reset: earliest
 
 security:
   jwt:

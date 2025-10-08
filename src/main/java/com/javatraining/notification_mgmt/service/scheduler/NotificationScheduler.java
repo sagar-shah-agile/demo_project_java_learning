@@ -5,6 +5,8 @@ import com.javatraining.notification_mgmt.model.User;
 import com.javatraining.notification_mgmt.model.enums.NotificationStatus;
 import com.javatraining.notification_mgmt.repository.NotificationRepository;
 
+import com.javatraining.notification_mgmt.service.notification.NotificationFailureSimulator;
+import com.javatraining.notification_mgmt.service.notification.email.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,40 +19,32 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
-//🧠 How it works (Notification Scheduler Flow)
-//----------------------------------------------
-//1️⃣ Scheduler Trigger
-//   → Runs every 5 minutes (cron: "0 */5 * * * *")
-//        → Automatically scans for due notifications.
+// 🧠 Notification Scheduler Flow (Production-Ready, Clean Logging)
+//-------------------------------------------------------------------
+// 1️⃣ Scheduler Trigger
+//    - Runs every 5 minutes (cron: "0 */5 * * * *")
+//    - Automatically fetches due notifications.
 //
-//2️⃣ Fetch Pending Notifications
-//   → Finds notifications with:
-//        • status = PENDING or RETRYING
-//        • scheduledTime <= now
-//        • retryCount < maxRetries
+// 2️⃣ Fetch Pending Notifications
+//    - status = PENDING or RETRYING
+//    - scheduledTime <= now
+//    - retryCount < maxRetries
 //
-//3️⃣ Attempt Email Delivery
-//   → For each notification:
-//        • Sends email using JavaMailSender
-//        • On success → mark as SENT and clear errors
+// 3️⃣ Attempt Email Delivery
+//    - For each notification:
+//        • Sends email via EmailService
+//        • On success → mark as SENT, clear errors
 //
-//4️⃣ Failure Handling
-//   → On failure:
-//        • retryCount = retryCount + 1
-//        • If retryCount < maxRetries:
-//        - status = RETRYING
-//              - scheduledTime = now + (backoffMinutes × retryCount)
-//        - save & retry later
-//        • Else if retryCount ≥ maxRetries:
-//        - status = FAILED (permanent failure)
-//              - stop further attempts
+// 4️⃣ Failure Handling
+//    - On failure:
+//        • Increment retryCount
+//        • If retryCount < maxRetries → RETRYING + reschedule (backoffMinutes × retryCount)
+//        • Else → mark FAILED (permanent failure)
 //
-//5️⃣ Logging & Persistence
-//   → Each step is logged:
-//        • Success → “✅ SENT”
-//        • Retry scheduled → “⏳ RETRYING”
-//        • Permanent failure → “🚫 FAILED”
-//        ----------------------------------------------
+// 5️⃣ Logging & Persistence
+//    - Logs only key events:
+//        • SENT, RETRYING, FAILED
+//-------------------------------------------------------------------
 
 @Service
 @RequiredArgsConstructor
@@ -58,7 +52,7 @@ import java.util.List;
 public class NotificationScheduler {
 
     private final NotificationRepository notificationRepository;
-    private final JavaMailSender mailSender;
+    private final EmailService emailService;
 
     // from properties
     @Value("${notification.max-retries}")
@@ -67,23 +61,11 @@ public class NotificationScheduler {
     @Value("${notification.backoff-minutes}")
     private int backoffMinutes;
 
-    /**
-     * 🕒 Scheduled Task — runs every 5 minutes
-     *
-     * ▶ Fetches notifications that are due (PENDING/RETRYING)
-     * ▶ Sends emails and updates their status accordingly:
-     *    - ✅ Success → mark SENT
-     *    - ⚠️ Failure → retry with exponential backoff
-     *    - 🚫 Max retries reached → mark FAILED
-     *
-     * Ensures all notification lifecycle transitions are handled automatically.
-     */
-    //@Scheduled(cron = "0 * * * * *")  // runs every 1 minute at 0 sec
     //@Scheduled(fixedDelay = 300000) // 5 minutes after last execution ends
     @Scheduled(cron = "0 */5 * * * *") // every 5 minutes
     @Transactional(readOnly = false)
     public void processDueNotifications() {
-        log.info("🔍 Checking for due notifications at {}", LocalDateTime.now());
+        log.info("🔍 Scheduler running: checking for due notifications at {}", LocalDateTime.now());
 
         // 1️⃣  Fetch pending/retrying notifications due for sending
         List<Notification> dueNotifications =
@@ -103,7 +85,8 @@ public class NotificationScheduler {
                     continue;
                 }
 
-                sendEmail(notification);
+                // ✉️ Attempt send
+                emailService.send(notification);
 
                 // 3️⃣ Successful send ✅ Update status in DB
                 notification.setStatus(NotificationStatus.SENT);
@@ -112,14 +95,8 @@ public class NotificationScheduler {
                 notification.setLastError(null);
                 notificationRepository.saveAndFlush(notification);
 
-                // 🧾 Log detailed info
-                log.info("📧 Notification ID={} | User ID={} | Name={} | Email={} | Subject='{}' ✅ SENT",
-                        notification.getId(),
-                        user.getId(),
-                        user.getName(),
-                        user.getEmail(),
-                        notification.getSubject()
-                );
+                log.info("✅ Notification ID={} SENT to {} | Subject='{}'",
+                        notification.getId(), user.getEmail(), notification.getSubject());
 
             } catch (Exception e) {
                 handleFailure(notification, e);
@@ -127,19 +104,6 @@ public class NotificationScheduler {
         }
     }
 
-
-    /**
-     * ✉️ Sends an email using configured JavaMailSender.
-     */
-    private void sendEmail(Notification notification) {
-        // ✉️ Build email object
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(notification.getUser().getEmail());
-        message.setSubject(notification.getSubject());
-        message.setText(notification.getMessage());
-        // 🚀 Send via Gmail (configured in application.properties / yml)
-        mailSender.send(message);
-    }
 
     /**
      * ⚠️ Handles failures:
