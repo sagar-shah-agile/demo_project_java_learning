@@ -1,5 +1,6 @@
 package com.javatraining.notification_mgmt.model;
 
+import com.javatraining.notification_mgmt.model.enums.NotificationStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -16,12 +17,6 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /**
-     * 📧 Email address of the recipient
-     *//*
-    @Column(nullable = false)
-    private String recipientEmail;
-*/
     /**
      * 📝 Subject line of the email
      */
@@ -41,16 +36,20 @@ public class Notification {
 
 
     /**
-     * ✅ Whether the notification has already been sent
-     * false = pending
-     * true  = sent
-     */
-    private boolean sent = false;
-
-    /**
      * 🔁 Retry attempts (useful for failed deliveries)
      */
-    //private int retryCount = 0;
+    @Column(name = "retry_count", nullable = false)
+    private int retryCount = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20, nullable = false)
+    private NotificationStatus status = NotificationStatus.PENDING;
+
+    @Column(name = "last_attempt_at")
+    private LocalDateTime lastAttemptAt;
+
+    @Column(name = "last_error", length = 1024)
+    private String lastError;
 
     // ✅ Link each notification to a registered user
     @ManyToOne(fetch = FetchType.LAZY)

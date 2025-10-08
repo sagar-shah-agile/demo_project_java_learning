@@ -5,6 +5,7 @@ import com.javatraining.notification_mgmt.dto.response.NotificationResponseDto;
 import com.javatraining.notification_mgmt.exception.custom.UserNotFoundException;
 import com.javatraining.notification_mgmt.model.Notification;
 import com.javatraining.notification_mgmt.model.User;
+import com.javatraining.notification_mgmt.model.enums.NotificationStatus;
 import com.javatraining.notification_mgmt.repository.NotificationRepository;
 import com.javatraining.notification_mgmt.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,25 +27,35 @@ public class NotificationServiceImpl implements NotificationService{
 
     @Override
     public NotificationResponseDto createNotification(NotificationRequestDto request) {
-        // ✅ Find user by email before creating notification
+        // ✅ 1️⃣ Validate & fetch recipient user
         User user = userRepository.findByEmail(request.getRecipientEmail())
                 .orElseThrow(() -> new UserNotFoundException("No user found with email: " + request.getRecipientEmail()));
 
-        // Map DTO → Entity
-        // ✅ Build notification linked to that user
+        // ✅ 2️⃣ Map Request → Entity
         Notification notification = modelMapper.map(request, Notification.class);
         notification.setUser(user);
-        notification.setSent(false);
+        // ⚙️ Initialize system-managed fields
+        notification.setStatus(NotificationStatus.PENDING);
+        notification.setRetryCount(0);
+        notification.setLastAttemptAt(null);
+        notification.setLastError(null);
 
+        // ✅ 3️⃣ Save to DB
         Notification saved = notificationRepository.save(notification);
 
-        // ✅ Map Entity → Response DTO (manually set recipientEmail)
+        // ✅ 4️⃣ Map Entity → Response DTO
         NotificationResponseDto response = modelMapper.map(saved, NotificationResponseDto.class);
         response.setRecipientEmail(user.getEmail());
+
+        log.info("🆕 Notification created for user={} | subject='{}' | scheduledTime={}",
+                user.getEmail(), request.getSubject(), request.getScheduledTime());
 
         return response;
     }
 
+    /**
+     * 📜 Fetch all notifications (with recipient email)
+     */
     @Override
     public List<NotificationResponseDto> getAllNotifications() {
         return notificationRepository.findAll().stream()

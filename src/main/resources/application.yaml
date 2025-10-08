@@ -25,6 +25,10 @@ spring:
           auth: true
           starttls.enable: true
 
+notification:
+  max-retries: 3
+  backoff-minutes: 5   # base backoff — final delay = backoff-minutes * (retryCount)
+
 kafka:
   bootstrap-servers: localhost:9092
   producer:
